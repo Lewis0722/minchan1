@@ -1,13 +1,13 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { UniversityData, SearchOptions } from "../types";
 
-// 1. Vite 환경에서 Vercel 환경 변수를 읽는 정확한 문법입니다.
+// 1. Vite 환경 전용 API Key 호출 방식
 const apiKey = import.meta.env.VITE_GEMINI_API_KEY || '';
 const ai = new GoogleGenAI({ apiKey });
 
 export const fetchUniversityData = async (majorQuery: string, options: SearchOptions): Promise<UniversityData[]> => {
   if (!apiKey) {
-    throw new Error("API Key가 설정되지 않았습니다. Vercel 설정을 확인해주세요.");
+    throw new Error("Vercel 설정에서 VITE_GEMINI_API_KEY를 확인해주세요.");
   }
 
   const regionNames = {
@@ -20,36 +20,38 @@ export const fetchUniversityData = async (majorQuery: string, options: SearchOpt
     ? options.regions.map(r => regionNames[r]).join(", ")
     : "전국 모든 지역";
 
-  let scorePrompt = "";
-  if (options.scoreType === 'GPA' && options.scoreValue) {
-    scorePrompt = `내신 ${options.scoreValue}등급 기준 적정/안정권 대학`;
-  } else if (options.scoreType === 'CSAT' && options.scoreValue) {
-    scorePrompt = `수능 백분위 ${options.scoreValue}% 기준 적정/안정권 대학`;
-  }
-
-  const systemInstruction = "당신은 대한민국 대학 입시 전문가입니다. 학과명에 맞는 대학 리스트를 JSON 형식으로만 응답하세요.";
+  const systemInstruction = "대한민국 대입 전문가로서 학과 정보를 JSON 배열로만 응답하세요.";
 
   try {
-    // 2. 모델명을 실존하는 안정적인 'gemini-1.5-flash'로 변경했습니다. (중요!)
-    const response = await ai.models.generateContent({
-      model: "gemini-1.5-flash", 
-      contents: `학과: "${majorQuery}", 지역: ${targetRegions}, 성적: ${scorePrompt}. 대학 정보를 JSON 배열로 반환하세요.`,
+    // 2. 모델명을 안정적인 'gemini-1.5-flash'로 고정
+    const result = await ai.models.generateContent({
+      model: "gemini-1.5-flash",
+      contents: `학과: "${majorQuery}", 지역: ${targetRegions}. 관련 대학 리스트를 JSON으로 반환해.`,
       config: {
         systemInstruction: systemInstruction,
         responseMimeType: "application/json",
       }
     });
 
-    // 3. 응답 텍스트 추출 방식 수정 (response.text() 또는 response.text 사용)
-    const jsonText = response.text;
-    if (!jsonText) throw new Error("AI 응답 데이터가 없습니다.");
+    // 3. ⭐ 가장 중요한 부분: .text가 아니라 .text() 함수를 호출해야 할 수도 있습니다.
+    // 현재 사용하시는 라이브러리 버전에 맞춰 안전하게 텍스트를 추출합니다.
+    const response = await result;
+    const jsonText = response.text || (typeof response.text === 'function' ? response.text() : "");
+
+    if (!jsonText) {
+      throw new Error("AI 응답이 비어있습니다.");
+    }
 
     const data = JSON.parse(jsonText) as UniversityData[];
+    
+    // 정렬 로직
+    const regionScore = { SEOUL: 1, CAPITAL: 2, OTHER: 3 };
+    data.sort((a, b) => regionScore[a.regionCategory] - regionScore[b.regionCategory]);
+
     return data;
 
   } catch (error) {
-    console.error("Gemini API Error Detail:", error);
-    // 4. 에러 발생 시 사용자에게 보여줄 메시지
+    console.error("실제 에러 로그:", error);
     throw new Error("AI 정보를 불러오는 중 실패했습니다. API 키나 모델 설정을 확인하세요.");
   }
 };
