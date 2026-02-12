@@ -1,30 +1,29 @@
-import path from 'path';
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
+import path from 'path';
 
-// https://vitejs.dev/config/
 export default defineConfig({
-  // 1. 배포 환경에서 index.css, favicon 등을 찾지 못하는 404 에러를 해결합니다.
-  base: '/', 
-
-  server: {
-    port: 3000,
-    host: '0.0.0.0',
-  },
-
+  // ✅ './'로 설정하여 절대 경로(/)가 아닌 현재 위치 기준으로 파일을 찾게 합니다.
+  base: './', 
   plugins: [react()],
-
   resolve: {
     alias: {
-      // 2. '@' 경로가 프로젝트 루트를 가리키도록 설정합니다.
-      '@': path.resolve(__dirname, '.'),
-    }
+      // ✅ 별칭을 명확히 src로 지정합니다.
+      '@': path.resolve(__dirname, './src'),
+    },
   },
-
   build: {
-    // 3. 빌드 결과물이 Vercel에서 인식하는 표준 폴더인 dist에 생성되도록 합니다.
     outDir: 'dist',
     assetsDir: 'assets',
-    sourcemap: false, // 배포용이므로 용량을 위해 끕니다.
+    // ✅ 빌드 시 이전 파일을 깨끗이 지웁니다.
+    emptyOutDir: true,
+    // ✅ 자산 파일 이름에 해시를 붙여 캐시 문제를 방지합니다.
+    rollupOptions: {
+      output: {
+        chunkFileNames: 'assets/[name]-[hash].js',
+        entryFileNames: 'assets/[name]-[hash].js',
+        assetFileNames: 'assets/[name]-[hash].[ext]'
+      }
+    }
   }
 });
