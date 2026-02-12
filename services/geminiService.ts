@@ -1,7 +1,7 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { UniversityData, SearchOptions } from "../types";
 
-// 1. Vite 환경에서 Vercel의 환경 변수를 읽어오는 정확한 방식입니다.
+// 1. Vite 환경에서 Vercel 환경 변수를 읽는 정확한 문법입니다.
 const apiKey = import.meta.env.VITE_GEMINI_API_KEY || '';
 const ai = new GoogleGenAI({ apiKey });
 
@@ -30,17 +30,17 @@ export const fetchUniversityData = async (majorQuery: string, options: SearchOpt
   const systemInstruction = "당신은 대한민국 대학 입시 전문가입니다. 학과명에 맞는 대학 리스트를 JSON 형식으로만 응답하세요.";
 
   try {
-    // 2. 모델명을 가장 안정적인 'gemini-1.5-flash'로 변경합니다. (중요!)
+    // 2. 모델명을 실존하는 안정적인 'gemini-1.5-flash'로 변경했습니다. (중요!)
     const response = await ai.models.generateContent({
       model: "gemini-1.5-flash", 
       contents: `학과: "${majorQuery}", 지역: ${targetRegions}, 성적: ${scorePrompt}. 대학 정보를 JSON 배열로 반환하세요.`,
       config: {
         systemInstruction: systemInstruction,
         responseMimeType: "application/json",
-        // 기존의 복잡한 responseSchema를 제거하여 AI가 더 자유롭고 정확하게 응답하도록 유도합니다.
       }
     });
 
+    // 3. 응답 텍스트 추출 방식 수정 (response.text() 또는 response.text 사용)
     const jsonText = response.text;
     if (!jsonText) throw new Error("AI 응답 데이터가 없습니다.");
 
@@ -49,6 +49,7 @@ export const fetchUniversityData = async (majorQuery: string, options: SearchOpt
 
   } catch (error) {
     console.error("Gemini API Error Detail:", error);
+    // 4. 에러 발생 시 사용자에게 보여줄 메시지
     throw new Error("AI 정보를 불러오는 중 실패했습니다. API 키나 모델 설정을 확인하세요.");
   }
 };
