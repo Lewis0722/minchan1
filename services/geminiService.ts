@@ -1,14 +1,13 @@
-// 1. 기존에 잘 작동하던 'GoogleGenAI'와 'Type'을 그대로 사용합니다.
 import { GoogleGenAI, Type } from "@google/genai";
 import { UniversityData, SearchOptions } from "../types";
 
-// 2. Vite 환경에 맞게 'import.meta.env'로 수정합니다.
+// ✅ 1. Vite 환경에서 Vercel 환경 변수를 읽는 정확한 방법으로 수정
 const apiKey = import.meta.env.VITE_GEMINI_API_KEY || '';
 const ai = new GoogleGenAI({ apiKey });
 
 export const fetchUniversityData = async (majorQuery: string, options: SearchOptions): Promise<UniversityData[]> => {
   if (!apiKey) {
-    throw new Error("API Key is missing. Please check your Vercel Environment Variables.");
+    throw new Error("API Key가 설정되지 않았습니다. Vercel 설정을 확인해주세요.");
   }
 
   const regionNames = {
@@ -23,28 +22,18 @@ export const fetchUniversityData = async (majorQuery: string, options: SearchOpt
 
   let scorePrompt = "";
   if (options.scoreType === 'GPA' && options.scoreValue) {
-    scorePrompt = `검색 기준 내신: **${options.scoreValue}등급**. (중요: **${options.scoreValue}등급 ~ 9.0등급** 사이의 '70% 컷'을 가진 대학 위주로 나열하세요. 입력된 등급으로 지원 가능한 **적정/안정권(내신 컷이 입력값보다 숫자가 큰)** 학교를 찾아야 합니다.)`;
+    scorePrompt = `내신 ${options.scoreValue}등급 기준 적정/안정권 대학을 추천하세요.`;
   } else if (options.scoreType === 'CSAT' && options.scoreValue) {
-    scorePrompt = `검색 기준 수능: **${options.scoreValue}%**. (중요: **${options.scoreValue}% ~ 0%** 사이의 '70% 컷'을 가진 대학 위주로 나열하세요. 입력된 점수로 지원 가능한 **적정/안정권(수능 컷이 입력값보다 낮은)** 학교를 찾아야 합니다.)`;
-  } else {
-    scorePrompt = "성적 무관하게 해당 학과가 유명한 주요 대학 위주로 다양하게 추천해주세요.";
+    scorePrompt = `수능 백분위 ${options.scoreValue}% 기준 적정/안정권 대학을 추천하세요.`;
   }
 
-  const systemInstruction = `
-    당신은 대한민국 2026년도 대학 입시 전문가입니다. 
-    사용자가 '학과'를 입력하면 대학 리스트를 제공하세요. 캠퍼스 분리 원칙을 준수하세요.
-  `;
-
-  const prompt = `학과: "${majorQuery}"
-  선택 지역: ${targetRegions}
-  성적 정보: ${scorePrompt}
-  위 조건에 맞는 대학 리스트를 JSON으로 반환해줘.`;
+  const systemInstruction = "당신은 대한민국 대학 입시 전문가입니다. 학과명에 맞는 대학 리스트를 JSON으로 제공하세요.";
 
   try {
-    // 3. 모델 이름은 안정적인 'gemini-1.5-flash'를 사용합니다.
     const response = await ai.models.generateContent({
+      // ✅ 2. 실존하는 안정적인 모델명(gemini-1.5-flash)으로 수정
       model: "gemini-1.5-flash",
-      contents: prompt,
+      contents: `학과: "${majorQuery}", 지역: ${targetRegions}, 성적: ${scorePrompt}`,
       config: {
         systemInstruction: systemInstruction,
         responseMimeType: "application/json",
@@ -83,13 +72,13 @@ export const fetchUniversityData = async (majorQuery: string, options: SearchOpt
     });
 
     const jsonText = response.text;
-    if (!jsonText) throw new Error("No data returned");
+    if (!jsonText) throw new Error("AI 응답 데이터가 없습니다.");
 
-    const data = JSON.parse(jsonText) as UniversityData[];
-    return data;
+    return JSON.parse(jsonText) as UniversityData[];
 
   } catch (error) {
     console.error("Gemini API Error:", error);
-    throw new Error("입시 정보를 불러오는 중 오류가 발생했습니다.");
+    // ✅ 에러 발생 시 구체적인 원인을 알 수 있도록 에러를 던집니다.
+    throw new Error("AI 정보를 불러오는 중 실패했습니다. API 키나 모델 설정을 확인하세요.");
   }
 };
