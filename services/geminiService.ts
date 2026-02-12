@@ -1,12 +1,16 @@
-import { GoogleGenAI, Type } from "@google/genai";
+// 1. 이름을 GoogleGenerativeAI로 정확히 임포트합니다.
+import { GoogleGenerativeAI } from "@google/genai"; 
 import { UniversityData, SearchOptions } from "../types";
 
-// -- 수정 (기존꺼 2개 지우고)
-//const apiKey = process.env.API_KEY || '';
-//const ai = new GoogleGenAI({ apiKey });
-// -- 신규 2개 넣
+// 2. Vercel 환경 변수 이름과 똑같이 맞춥니다.
 const apiKey = import.meta.env.VITE_GEMINI_API_KEY || '';
-const genAI = new GoogleGenerativeAI(apiKey);
+
+// 3. 위에서 임포트한 이름(GoogleGenerativeAI)과 똑같이 써줍니다.
+const genAI = new GoogleGenerativeAI(apiKey); 
+
+// 4. 아래쪽 함수에서 ai.getGenerativeModel 대신 genAI.getGenerativeModel를 사용하세요.
+// 만약 아래쪽 코드를 고치기 힘들다면 아래처럼 쓰셔도 됩니다:
+// const ai = new GoogleGenerativeAI(apiKey);
 
 
 export const fetchUniversityData = async (majorQuery: string, options: SearchOptions): Promise<UniversityData[]> => {
