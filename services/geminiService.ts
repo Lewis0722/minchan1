@@ -1,17 +1,17 @@
-// 1. 이름을 GoogleGenerativeAI로 정확히 임포트합니다.
-import { GoogleGenerativeAI } from "@google/genai"; 
+// 1. 라이브러리 임포트 (이름을 GoogleGenerativeAI로 정확히 씁니다)
+import { GoogleGenerativeAI } from "@google/genai";
 import { UniversityData, SearchOptions } from "../types";
 
-// 2. Vercel 환경 변수 이름과 똑같이 맞춥니다.
-const apiKey = import.meta.env.VITE_GEMINI_API_KEY || '';
+// 2. Vercel 설정과 연결되는 API Key 가져오기
+// 'import.meta.env'를 사용해야 Vite 앱이 Vercel의 환경 변수를 읽어올 수 있습니다.
+const apiKey = import.meta.env.VITE_GEMINI_API_KEY || ''; 
 
-// 3. 위에서 임포트한 이름(GoogleGenerativeAI)과 똑같이 써줍니다.
-const genAI = new GoogleGenerativeAI(apiKey); 
+// 3. AI 객체 생성 (라이브러리 양식에 맞게 수정)
+const genAI = new GoogleGenerativeAI(apiKey);
 
-// 4. 아래쪽 함수에서 ai.getGenerativeModel 대신 genAI.getGenerativeModel를 사용하세요.
-// 만약 아래쪽 코드를 고치기 힘들다면 아래처럼 쓰셔도 됩니다:
-// const ai = new GoogleGenerativeAI(apiKey);
-
+// 4. (중요) 아래쪽 코드에서 'ai'라는 이름을 쓰고 있다면 아래처럼 정의하세요.
+// 그러면 파일 하단의 나머지 코드를 고칠 필요가 없습니다.
+const ai = genAI;
 
 export const fetchUniversityData = async (majorQuery: string, options: SearchOptions): Promise<UniversityData[]> => {
   if (!apiKey) {
