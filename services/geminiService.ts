@@ -1,8 +1,13 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { UniversityData, SearchOptions } from "../types";
 
-const apiKey = process.env.API_KEY || '';
-const ai = new GoogleGenAI({ apiKey });
+// -- 수정 (기존꺼 2개 지우고)
+//const apiKey = process.env.API_KEY || '';
+//const ai = new GoogleGenAI({ apiKey });
+// -- 신규 2개 넣
+const apiKey = import.meta.env.VITE_GEMINI_API_KEY || '';
+const genAI = new GoogleGenerativeAI(apiKey);
+
 
 export const fetchUniversityData = async (majorQuery: string, options: SearchOptions): Promise<UniversityData[]> => {
   if (!apiKey) {
