@@ -1,16 +1,16 @@
-import { GoogleGenerativeAI } from "@google/genai";
+// 1. 기존에 잘 작동하던 'GoogleGenAI'와 'Type'을 그대로 사용합니다.
+import { GoogleGenAI, Type } from "@google/genai";
 import { UniversityData, SearchOptions } from "../types";
 
-// 1. Vite 환경에서 Vercel의 환경 변수를 읽어오는 올바른 방법입니다. 
-const apiKey = import.meta.env.VITE_GEMINI_API_KEY || ''; 
-const genAI = new GoogleGenerativeAI(apiKey);
+// 2. Vite 환경에 맞게 'import.meta.env'로 수정합니다.
+const apiKey = import.meta.env.VITE_GEMINI_API_KEY || '';
+const ai = new GoogleGenAI({ apiKey });
 
 export const fetchUniversityData = async (majorQuery: string, options: SearchOptions): Promise<UniversityData[]> => {
   if (!apiKey) {
     throw new Error("API Key is missing. Please check your Vercel Environment Variables.");
   }
 
-  // 지역 조건 텍스트 생성
   const regionNames = {
     SEOUL: "서울권",
     CAPITAL: "수도권(경기/인천)",
@@ -21,7 +21,6 @@ export const fetchUniversityData = async (majorQuery: string, options: SearchOpt
     ? options.regions.map(r => regionNames[r]).join(", ")
     : "전국 모든 지역";
 
-  // 성적 조건 텍스트 생성
   let scorePrompt = "";
   if (options.scoreType === 'GPA' && options.scoreValue) {
     scorePrompt = `검색 기준 내신: **${options.scoreValue}등급**. (중요: **${options.scoreValue}등급 ~ 9.0등급** 사이의 '70% 컷'을 가진 대학 위주로 나열하세요. 입력된 등급으로 지원 가능한 **적정/안정권(내신 컷이 입력값보다 숫자가 큰)** 학교를 찾아야 합니다.)`;
@@ -33,80 +32,64 @@ export const fetchUniversityData = async (majorQuery: string, options: SearchOpt
 
   const systemInstruction = `
     당신은 대한민국 2026년도 대학 입시 전문가입니다. 
-    사용자가 '학과'를 입력하면, 해당 학과 또는 유사한 관련 학과가 있는 대학들의 리스트를 제공해야 합니다.
-    
-    **중요: 캠퍼스 분리 원칙**
-    - **본교와 분교(제2캠퍼스)는 반드시 서로 다른 독립된 학교로 취급해야 합니다.**
-    - 예: '중앙대학교'와 '중앙대학교(다빈치/안성)', '연세대학교'와 '연세대학교(미래)', '고려대학교'와 '고려대학교(세종)', '한양대학교'와 '한양대학교(ERICA)'.
-    - 분교나 캠퍼스는 universityName에 반드시 캠퍼스 명을 명시하세요 (예: "한양대학교(ERICA)").
-    - 각 캠퍼스는 위치(location)와 입시 결과(stats)가 완전히 다르므로 정확히 구분해서 데이터를 생성하세요.
-
-    **검색 조건:**
-    1. **목표 지역**: ${targetRegions} 위주로 찾아주세요.
-    2. **성적 반영**: ${scorePrompt}
-    3. **데이터 양**: 조건에 맞는 학교를 최대한 많이(최소 25개 이상) 나열하세요.
-    
-    **데이터 생성 규칙 (매우 중요 - 정밀성 요구):**
-    1. **지역 분류**: regionCategory를 'SEOUL'(서울), 'CAPITAL'(경기/인천), 'OTHER'(그 외 지방) 중 하나로 정확히 분류하세요.
-    2. **데이터 분리**: 
-       - 모집인원: '수시(quotaSuSi)', '정시(quotaJeongSi)' 분리.
-       - 경쟁률: '수시(competitionRateSuSi)', '정시(competitionRateJeongSi)' 분리.
-    3. **점수 기준 - '상위 70% 컷' (70% Cutoff) 사용**:
-       - 모든 점수는 **최종 등록자 기준 상위 70% 컷(10명 중 7등의 성적)**을 기준으로 반환하세요. 평균값이 아닙니다.
-       - **내신 컷(cutoffGPA)**: 수시 **학생부교과** 전형 기준 70% 컷. (예: 2.61)
-       - **수능 컷(cutoffCSAT)**: 정시 **일반전형** 기준 국/수/탐 **백분위 평균** 70% 컷. (예: 86.8)
-    4. **연도별 데이터**: 
-       - 2025년 데이터: 2025학년도 입시 결과 (2024년 말 시행). 아직 최종 발표 전이라면, 배치표 상의 예상 70% 컷을 사용하세요.
-       - 2024년 데이터: 2024학년도 입시 결과 (확정치). 대입정보포털(어디가) 기준 70% 컷을 사용하세요.
-    5. 생성된 값은 매 요청마다 가능한 한 일관성을 유지하도록, 알려진 입시 결과값에 가깝게 생성하세요.
+    사용자가 '학과'를 입력하면 대학 리스트를 제공하세요. 캠퍼스 분리 원칙을 준수하세요.
   `;
-
-  // 2. 모델 설정 (안정적인 gemini-1.5-flash 모델 사용 권장)
-  const model = genAI.getGenerativeModel({ 
-    model: "gemini-1.5-flash", 
-    systemInstruction: systemInstruction 
-  });
 
   const prompt = `학과: "${majorQuery}"
   선택 지역: ${targetRegions}
   성적 정보: ${scorePrompt}
-  
-  위 조건에 맞는 대학 리스트를 JSON으로 반환해줘. 캠퍼스 구분 철저히 해줘. 2024년, 2025년 데이터 모두 포함해줘.`;
+  위 조건에 맞는 대학 리스트를 JSON으로 반환해줘.`;
 
   try {
-    // 3. API 호출 방식 수정
-    const result = await model.generateContent({
-      contents: [{ role: 'user', parts: [{ text: prompt }] }],
-      generationConfig: {
+    // 3. 모델 이름은 안정적인 'gemini-1.5-flash'를 사용합니다.
+    const response = await ai.models.generateContent({
+      model: "gemini-1.5-flash",
+      contents: prompt,
+      config: {
+        systemInstruction: systemInstruction,
         responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.ARRAY,
+          items: {
+            type: Type.OBJECT,
+            properties: {
+              id: { type: Type.STRING },
+              universityName: { type: Type.STRING },
+              departmentName: { type: Type.STRING },
+              location: { type: Type.STRING },
+              regionCategory: { type: Type.STRING, enum: ["SEOUL", "CAPITAL", "OTHER"] },
+              tags: { type: Type.ARRAY, items: { type: Type.STRING } },
+              stats: {
+                type: Type.ARRAY,
+                items: {
+                  type: Type.OBJECT,
+                  properties: {
+                    year: { type: Type.INTEGER },
+                    quotaSuSi: { type: Type.INTEGER },
+                    quotaJeongSi: { type: Type.INTEGER },
+                    competitionRateSuSi: { type: Type.NUMBER },
+                    competitionRateJeongSi: { type: Type.NUMBER },
+                    cutoffGPA: { type: Type.NUMBER },
+                    cutoffCSAT: { type: Type.NUMBER }
+                  },
+                  required: ["year", "quotaSuSi", "quotaJeongSi", "competitionRateSuSi", "competitionRateJeongSi", "cutoffGPA", "cutoffCSAT"]
+                }
+              }
+            },
+            required: ["id", "universityName", "departmentName", "location", "regionCategory", "tags", "stats"]
+          }
+        }
       }
     });
 
-    const response = await result.response;
-    const jsonText = response.text();
-    
-    if (!jsonText) {
-      throw new Error("No data returned from AI");
-    }
+    const jsonText = response.text;
+    if (!jsonText) throw new Error("No data returned");
 
     const data = JSON.parse(jsonText) as UniversityData[];
-    
-    // 정렬 로직: 서울 > 수도권 > 지방 순서 후 내신 컷 순
-    const regionScore = { SEOUL: 1, CAPITAL: 2, OTHER: 3 };
-    
-    data.sort((a, b) => {
-      if (regionScore[a.regionCategory] !== regionScore[b.regionCategory]) {
-        return regionScore[a.regionCategory] - regionScore[b.regionCategory];
-      }
-      const aStats = [...a.stats].sort((x, y) => y.year - x.year)[0] || { cutoffGPA: 9 };
-      const bStats = [...b.stats].sort((x, y) => y.year - x.year)[0] || { cutoffGPA: 9 };
-      return aStats.cutoffGPA - bStats.cutoffGPA;
-    });
-
     return data;
 
   } catch (error) {
     console.error("Gemini API Error:", error);
-    throw new Error("입시 정보를 불러오는 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.");
+    throw new Error("입시 정보를 불러오는 중 오류가 발생했습니다.");
   }
 };
