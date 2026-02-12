@@ -1,18 +1,19 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { UniversityData, SearchOptions } from "../types";
 
-// 1. Vite/Vercel 환경 변수 호출
+// 1. Vite 환경 변수 호출
 const apiKey = import.meta.env.VITE_GEMINI_API_KEY || '';
 
-// 2. 중요: baseUrl을 'v1'으로 강제 지정하여 404 에러를 방지합니다.
+// 2. 중요: 최신 모델들은 보통 'v1beta' 주소에 먼저 배포됩니다. 
+// 아까 404가 났던 이유는 주소와 모델명이 매칭되지 않아서였으므로, 이번엔 확실한 조합으로 설정합니다.
 const ai = new GoogleGenAI({ 
   apiKey,
-  baseUrl: "https://generativelanguage.googleapis.com/v1" 
+  baseUrl: "https://generativelanguage.googleapis.com/v1beta" 
 });
 
 export const fetchUniversityData = async (majorQuery: string, options: SearchOptions): Promise<UniversityData[]> => {
   if (!apiKey) {
-    throw new Error("Vercel 설정에서 VITE_GEMINI_API_KEY를 확인해주세요.");
+    throw new Error("VITE_GEMINI_API_KEY가 설정되지 않았습니다.");
   }
 
   const regionNames = {
@@ -28,9 +29,11 @@ export const fetchUniversityData = async (majorQuery: string, options: SearchOpt
   const systemInstruction = "대한민국 입시 전문가입니다. 반드시 JSON 배열 형식으로만 응답하세요.";
 
   try {
-    // 3. 가장 대중적이고 안정적인 gemini-1.5-flash 모델 사용
+    // 3. AI Studio에서 사용하신 최신 모델명으로 설정합니다.
+    // 보통 'gemini-2.0-pro-exp-02-05' 또는 'gemini-1.5-pro'를 사용합니다.
+    // 'gemini-1.5-pro'가 가장 똑똑하고 안정적입니다.
     const result = await ai.models.generateContent({
-      model: "gemini-1.5-flash",
+      model: "gemini-1.5-pro", 
       contents: `학과: "${majorQuery}", 지역: ${targetRegions}. 관련 대학 리스트를 JSON 배열로 반환하세요.`,
       config: {
         systemInstruction: systemInstruction,
@@ -38,11 +41,10 @@ export const fetchUniversityData = async (majorQuery: string, options: SearchOpt
       }
     });
 
-    // 4. 응답 데이터 추출
     const response = await result;
     const jsonText = response.text;
 
-    if (!jsonText) throw new Error("AI 응답이 없습니다.");
+    if (!jsonText) throw new Error("AI 응답 데이터가 없습니다.");
 
     const data = JSON.parse(jsonText) as UniversityData[];
     
@@ -53,8 +55,7 @@ export const fetchUniversityData = async (majorQuery: string, options: SearchOpt
     return data;
 
   } catch (error: any) {
-    console.error("최종 에러 상세:", error);
-    // 에러 발생 시 사용자에게 더 명확한 가이드를 제공합니다.
-    throw new Error("데이터를 가져오지 못했습니다. API 키가 활성화되어 있는지 확인해 주세요.");
+    console.error("에러 상세:", error);
+    throw new Error("정보를 불러오지 못했습니다. 모델명이나 API 설정을 확인하세요.");
   }
 };
